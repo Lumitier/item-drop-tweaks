@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "itemdroptweaks",
+  "version": "${version}",
+  "name": "Item Drop Tweaks",
+  "description": "Client-side customization of dropped items: scale and color them by their actual stack size, so large merged stacks stay distinguishable.",
+  "authors": [
+    "Lumitier"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/item-drop-tweaks",
+    "sources": "https://github.com/Lumitier/item-drop-tweaks",
+    "issues": "https://github.com/Lumitier/item-drop-tweaks/issues"
+  },
+  "license": "Apache-2.0",
+  "icon": "assets/itemdroptweaks/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.lumitier.itemdroptweaks.client.ItemDropTweaksClient"
+    ],
+    "modmenu": [
+      "com.lumitier.itemdroptweaks.config.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "itemdroptweaks.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "yet_another_config_lib_v3": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

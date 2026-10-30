@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.lumitier.itemdroptweaks.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ItemEntityRendererMixin",
+    "ItemStackEntityRenderStateMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
