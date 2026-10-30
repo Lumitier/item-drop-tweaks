@@ -1,5 +1,8 @@
 package com.lumitier.itemdroptweaks.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.lumitier.itemdroptweaks.ItemDropTweaks;
 import com.lumitier.itemdroptweaks.duck.ItemCountHolder;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -14,10 +17,7 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.random.Random;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyConstant;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -113,27 +113,25 @@ public class ItemEntityRendererMixin {
 	// Matrix-Stack garantiert ausbalanciert bleibt.
 	// ------------------------------------------------------------------
 
-	@Redirect(
+	@WrapOperation(
 		method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-		at = @At(
-			value = "INVOKE",
-			target = "Lnet/minecraft/client/render/entity/ItemEntityRenderer;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;ILnet/minecraft/client/render/entity/state/ItemStackEntityRenderState;Lnet/minecraft/util/math/random/Random;Lnet/minecraft/util/math/Box;)V"
-		)
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/ItemEntityRenderer;render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;ILnet/minecraft/client/render/entity/state/ItemStackEntityRenderState;Lnet/minecraft/util/math/random/Random;Lnet/minecraft/util/math/Box;)V")
 	)
 	private void itemdroptweaks$scaled(MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
-	                                   ItemStackEntityRenderState state, Random random, Box box) {
+	                                   ItemStackEntityRenderState state, Random random, Box box,
+	                                   Operation<Void> original) {
 		float f = ItemDropTweaks.enabled
 			? ItemDropTweaks.totalScale(((ItemCountHolder) state).itemdroptweaks$getCount())
 			: 1.0F;
 
 		if (f == 1.0F) {
-			ItemEntityRenderer.render(matrices, queue, light, state, random, box);
+			original.call(matrices, queue, light, state, random, box);
 			return;
 		}
 
 		matrices.push();
 		matrices.scale(f, f, f);
-		ItemEntityRenderer.render(matrices, queue, light, state, random, box);
+		original.call(matrices, queue, light, state, random, box);
 		matrices.pop();
 	}
 
@@ -142,16 +140,15 @@ public class ItemEntityRendererMixin {
 	// Faktor 0 friert die Drehung ein (alle Items zeigen dann gleich).
 	// ------------------------------------------------------------------
 
-	@Redirect(
+	@ModifyExpressionValue(
 		method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ItemEntity;getRotation(FF)F")
 	)
-	private float itemdroptweaks$spin(float age, float uniqueOffset) {
-		float r = ItemEntity.getRotation(age, uniqueOffset);
+	private float itemdroptweaks$spin(float original) {
 		if (!ItemDropTweaks.enabled) {
-			return r;
+			return original;
 		}
-		return r * ItemDropTweaks.clamp(ItemDropTweaks.spinSpeed, 0.0F, 5.0F);
+		return original * ItemDropTweaks.clamp(ItemDropTweaks.spinSpeed, 0.0F, 5.0F);
 	}
 
 	// ------------------------------------------------------------------
@@ -160,9 +157,9 @@ public class ItemEntityRendererMixin {
 	// jedes Item ruht dann auf seiner eigenen Hoehe statt alle auf derselben.
 	// ------------------------------------------------------------------
 
-	@ModifyConstant(
+	@ModifyExpressionValue(
 		method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-		constant = @Constant(floatValue = 10.0F)
+		at = @At(value = "CONSTANT", args = "floatValue=10.0")
 	)
 	private float itemdroptweaks$bobDivisor(float original) {
 		if (!ItemDropTweaks.enabled) {
@@ -182,9 +179,9 @@ public class ItemEntityRendererMixin {
 	 * steuert. Trifft er stattdessen den Sockel, schwebt das Item hoeher
 	 * statt staerker; dann gehoert hier ordinal = 1 hin.
 	 */
-	@ModifyConstant(
+	@ModifyExpressionValue(
 		method = "render(Lnet/minecraft/client/render/entity/state/ItemEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;Lnet/minecraft/client/render/state/CameraRenderState;)V",
-		constant = @Constant(floatValue = 0.1F, ordinal = 0)
+		at = @At(value = "CONSTANT", args = "floatValue=0.1", ordinal = 0)
 	)
 	private float itemdroptweaks$bobHeight(float original) {
 		if (!ItemDropTweaks.enabled) {
@@ -208,9 +205,9 @@ public class ItemEntityRendererMixin {
 	// Option auch bei flachen Items wirkt.
 	// ------------------------------------------------------------------
 
-	@ModifyConstant(
+	@ModifyExpressionValue(
 		method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;ILnet/minecraft/client/render/entity/state/ItemStackEntityRenderState;Lnet/minecraft/util/math/random/Random;Lnet/minecraft/util/math/Box;)V",
-		constant = @Constant(floatValue = 0.15F)
+		at = @At(value = "CONSTANT", args = "floatValue=0.15")
 	)
 	private static float itemdroptweaks$spread(float original) {
 		if (!ItemDropTweaks.enabled) {
