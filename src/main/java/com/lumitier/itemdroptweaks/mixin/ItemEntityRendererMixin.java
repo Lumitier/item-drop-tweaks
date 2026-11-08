@@ -70,7 +70,7 @@ public class ItemEntityRendererMixin {
 	private void itemdroptweaks$maybeSkip(ItemEntityRenderState state, MatrixStack matrices,
 	                                      OrderedRenderCommandQueue queue, CameraRenderState camera,
 	                                      CallbackInfo ci) {
-		if (ItemDropTweaks.enabled && !ItemDropTweaks.renderDrops) {
+		if (ItemDropTweaks.active() && !ItemDropTweaks.renderDrops) {
 			ci.cancel();
 		}
 	}
@@ -89,7 +89,7 @@ public class ItemEntityRendererMixin {
 		int count = entity.getStack().getCount();
 		((ItemCountHolder) state).itemdroptweaks$setCount(count);
 
-		if (!ItemDropTweaks.enabled) {
+		if (!ItemDropTweaks.active()) {
 			return;
 		}
 
@@ -120,7 +120,7 @@ public class ItemEntityRendererMixin {
 	private void itemdroptweaks$scaled(MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
 	                                   ItemStackEntityRenderState state, Random random, Box box,
 	                                   Operation<Void> original) {
-		float f = ItemDropTweaks.enabled
+		float f = ItemDropTweaks.active()
 			? ItemDropTweaks.totalScale(((ItemCountHolder) state).itemdroptweaks$getCount())
 			: 1.0F;
 
@@ -145,7 +145,7 @@ public class ItemEntityRendererMixin {
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ItemEntity;getRotation(FF)F")
 	)
 	private float itemdroptweaks$spin(float original) {
-		if (!ItemDropTweaks.enabled) {
+		if (!ItemDropTweaks.active()) {
 			return original;
 		}
 		return original * ItemDropTweaks.clamp(ItemDropTweaks.spinSpeed, 0.0F, 5.0F);
@@ -162,7 +162,7 @@ public class ItemEntityRendererMixin {
 		at = @At(value = "CONSTANT", args = "floatValue=10.0")
 	)
 	private float itemdroptweaks$bobDivisor(float original) {
-		if (!ItemDropTweaks.enabled) {
+		if (!ItemDropTweaks.active()) {
 			return original;
 		}
 		float sp = ItemDropTweaks.clamp(ItemDropTweaks.bobSpeed, 0.0F, 5.0F);
@@ -184,7 +184,7 @@ public class ItemEntityRendererMixin {
 		at = @At(value = "CONSTANT", args = "floatValue=0.1", ordinal = 0)
 	)
 	private float itemdroptweaks$bobHeight(float original) {
-		if (!ItemDropTweaks.enabled) {
+		if (!ItemDropTweaks.active()) {
 			return original;
 		}
 		return original * ItemDropTweaks.clamp(ItemDropTweaks.bobHeight, 0.0F, 3.0F);
@@ -210,7 +210,7 @@ public class ItemEntityRendererMixin {
 		at = @At(value = "CONSTANT", args = "floatValue=0.15")
 	)
 	private static float itemdroptweaks$spread(float original) {
-		if (!ItemDropTweaks.enabled) {
+		if (!ItemDropTweaks.active()) {
 			return original;
 		}
 		return original * ItemDropTweaks.clamp(ItemDropTweaks.spread, 0.0F, 3.0F);
