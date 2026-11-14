@@ -2,7 +2,11 @@ package com.lumitier.itemdroptweaks;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.item.Item;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +14,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Mod-weiter Zustand + Config.
@@ -99,6 +105,105 @@ public final class ItemDropTweaks {
 	/** Stapelgroesse, die als oberes Ende der Skala gilt. */
 	public static volatile int countMax = 1024;
 
+	// ------------------------------------------------------------------
+	// Eigene Einstellungen je Item
+	// ------------------------------------------------------------------
+
+	/** Kleinster und groesster Faktor, den eine Zeile annehmen darf. */
+	public static final float ITEM_MIN = 0.0F;
+	public static final float ITEM_MAX = 2.5F;
+
+	/**
+	 * Was fuer ein einzelnes Item gilt.
+	 *
+	 * Diese Werte ERSETZEN die allgemeinen Einstellungen darueber, sie
+	 * verrechnen sich nicht mit ihnen. Wer ein Item in die Liste
+	 * aufnimmt, will es offensichtlich eigens einstellen - dann soll ein
+	 * Schieben am allgemeinen Regler es nicht mehr mitziehen.
+	 *
+	 * Die Stapelgroessen-Einstellungen bleiben davon unberuehrt, die
+	 * stehen in der Oberflaeche unterhalb der Liste.
+	 *
+	 * Schlichte Klasse mit offenen Feldern, weil GSON sie direkt liest
+	 * und schreibt.
+	 */
+	public static final class ItemSettings {
+		public float scale = 1.0F;
+		public int glow = 0;
+		public boolean shadow = true;
+
+		public ItemSettings() {}
+
+		public ItemSettings(float scale, int glow, boolean shadow) {
+			this.scale = scale;
+			this.glow = glow;
+			this.shadow = shadow;
+		}
+
+		public ItemSettings copy() {
+			return new ItemSettings(scale, glow, shadow);
+		}
+
+		void sanitize() {
+			scale = clamp(scale, ITEM_MIN, ITEM_MAX);
+			glow = clampInt(glow, 0, 15);
+		}
+	}
+
+	/**
+	 * Was in der Config steht: Item-Kennung auf Einstellungen.
+	 *
+	 * WARUM ALS TEXT UND NICHT ALS ITEM:
+	 * Die Datei wird gelesen, bevor feststeht, welche Mods mitlaufen. Eine
+	 * Zeile fuer ein Item aus einer Mod, die gerade fehlt, soll erhalten
+	 * bleiben und nicht beim naechsten Speichern verschwinden.
+	 *
+	 * Reihenfolge bleibt wie eingetragen - deshalb LinkedHashMap.
+	 */
+	public static final Map<String, ItemSettings> itemSettings = new LinkedHashMap<>();
+
+	/**
+	 * Dieselben Werte, aber auf echte Items aufgeloest.
+	 *
+	 * WOZU ZWEIMAL:
+	 * Der Zeichenpfad fragt einmal pro Item und Bild nach. Ueber die
+	 * Kennung zu gehen hiesse, pro Abfrage einen String zu bauen - Muell
+	 * im Hot-Path. Hier liegt stattdessen eine fertige Zuordnung, die nur
+	 * beim Laden und beim Speichern neu gebaut wird.
+	 *
+	 * volatile, weil der Config-Bildschirm sie ersetzt, waehrend der
+	 * Renderthread liest. Ersetzt wird immer die ganze Map, nie ein
+	 * Eintrag darin - so sieht der Leser entweder die alte oder die neue,
+	 * nie eine halb umgebaute.
+	 */
+	private static volatile Map<Item, ItemSettings> itemIndex = Map.of();
+
+	/** Einstellungen fuer dieses Item, oder null wenn es nicht in der Liste steht. */
+	public static ItemSettings settingsFor(Item item) {
+		return itemIndex.get(item);
+	}
+
+	/**
+	 * Aufgeloeste Zuordnung neu bauen. Nach dem Laden und nach jeder
+	 * Aenderung im Config-Bildschirm aufrufen.
+	 *
+	 * Unbekannte Kennungen werden uebersprungen, bleiben aber in
+	 * itemSettings stehen - siehe oben.
+	 */
+	public static void rebuildItemIndex() {
+		Map<Item, ItemSettings> next = new LinkedHashMap<>(itemSettings.size());
+		for (Map.Entry<String, ItemSettings> e : itemSettings.entrySet()) {
+			Identifier id = Identifier.tryParse(e.getKey());
+			if (id == null || !Registries.ITEM.containsId(id) || e.getValue() == null) {
+				continue;
+			}
+			ItemSettings v = e.getValue().copy();
+			v.sanitize();
+			next.put(Registries.ITEM.get(id), v);
+		}
+		itemIndex = next;
+	}
+
 	/** 0..1, wie weit ein Stapel im konfigurierten Bereich liegt. */
 	public static float fraction(int count) {
 		int max = clampInt(countMax, 64, 100000);
@@ -117,13 +222,29 @@ public final class ItemDropTweaks {
 		return clampInt(1 + Math.round((max - 1) * fraction(count)), 1, max);
 	}
 
-	/** Basisgroesse mal Stapelgroessen-Faktor - was der Renderer wirklich nimmt. */
+	/** Allgemeine Groesse mal Stapelgroessen-Faktor, ohne Eintrag in der Liste. */
 	public static float totalScale(int count) {
-		float f = clamp(scale, 0.1F, 3.0F);
+		return totalScale(count, null);
+	}
+
+	/**
+	 * Was der Renderer wirklich nimmt.
+	 *
+	 * Steht das Item in der Liste, gilt dessen Groesse ALLEIN - die
+	 * allgemeine Groesse darueber wird uebergangen. Die
+	 * Stapelgroessen-Einstellung wirkt weiter, die gehoert nicht zu den
+	 * Einstellungen, die ein Listeneintrag ersetzt.
+	 */
+	public static float totalScale(int count, ItemSettings own) {
+		float f = own != null
+			? clamp(own.scale, ITEM_MIN, ITEM_MAX)
+			: clamp(scale, 0.1F, 3.0F);
 		if (scaleByCount) {
 			f *= scaleFor(count);
 		}
-		return f;
+		// 0 ist erlaubt und heisst unsichtbar - das ist eine gueltige
+		// Einstellung, kein Fehler.
+		return clamp(f, 0.0F, 3.0F);
 	}
 
 	/** Groessenfaktor nach Stapelgroesse, 1.0 .. scaleMax. */
@@ -158,6 +279,11 @@ public final class ItemDropTweaks {
 		maxCopies = clampInt(maxCopies, 1, 16);
 		scaleMax  = clamp(scaleMax, 1.0F, 3.0F);
 		countMax  = clampInt(countMax, 64, 100000);
+		for (ItemSettings v : itemSettings.values()) {
+			if (v != null) {
+				v.sanitize();
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -186,6 +312,33 @@ public final class ItemDropTweaks {
 		boolean scaleByCount = false;
 		float scaleMax = 1.5F;
 		int countMax = 1024;
+		/**
+		 * Rohform, damit auch die alte Fassung noch gelesen wird: dort
+		 * stand hinter der Kennung nur eine Zahl, heute ein Block mit
+		 * Groesse, Leuchten und Schatten.
+		 */
+		Map<String, JsonElement> itemScales = new LinkedHashMap<>();
+	}
+
+	/**
+	 * Einen Eintrag aus der Datei lesen.
+	 *
+	 * Alte Fassung: nur eine Zahl, die Groesse. Leuchten und Schatten
+	 * bekommen dann die Vorgaben, damit sich an einem bestehenden Pack
+	 * nichts aendert.
+	 */
+	private static ItemSettings readSettings(JsonElement raw) {
+		if (raw == null || raw.isJsonNull()) {
+			return null;
+		}
+		try {
+			if (raw.isJsonPrimitive() && raw.getAsJsonPrimitive().isNumber()) {
+				return new ItemSettings(raw.getAsFloat(), 0, true);
+			}
+			return GSON.fromJson(raw, ItemSettings.class);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	public static void load() {
@@ -209,6 +362,15 @@ public final class ItemDropTweaks {
 						scaleByCount  = d.scaleByCount;
 						scaleMax      = d.scaleMax;
 						countMax      = d.countMax;
+						itemSettings.clear();
+						if (d.itemScales != null) {
+							for (Map.Entry<String, JsonElement> e : d.itemScales.entrySet()) {
+								ItemSettings v = readSettings(e.getValue());
+								if (e.getKey() != null && v != null) {
+									itemSettings.put(e.getKey(), v);
+								}
+							}
+						}
 					}
 				}
 			}
@@ -216,11 +378,13 @@ public final class ItemDropTweaks {
 			LOGGER.warn("[Item Drop Tweaks] Config konnte nicht geladen werden, nutze Defaults.", e);
 		}
 		sanitize();
+		rebuildItemIndex();
 		save();
 	}
 
 	public static void save() {
 		sanitize();
+		rebuildItemIndex();
 		Path p = configPath();
 		try {
 			Files.createDirectories(p.getParent());
@@ -239,6 +403,10 @@ public final class ItemDropTweaks {
 			d.scaleByCount  = scaleByCount;
 			d.scaleMax      = scaleMax;
 			d.countMax      = countMax;
+			d.itemScales    = new LinkedHashMap<>();
+			for (Map.Entry<String, ItemSettings> e : itemSettings.entrySet()) {
+				d.itemScales.put(e.getKey(), GSON.toJsonTree(e.getValue()));
+			}
 			try (Writer w = Files.newBufferedWriter(p)) {
 				GSON.toJson(d, w);
 			}

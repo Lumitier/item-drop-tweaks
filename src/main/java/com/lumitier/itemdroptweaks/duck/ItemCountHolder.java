@@ -13,4 +13,16 @@ public interface ItemCountHolder {
 	int itemdroptweaks$getCount();
 
 	void itemdroptweaks$setCount(int count);
+
+	/**
+	 * Fertige Groesse dieses Drops, inklusive Listeneintrag und
+	 * Stapelgroesse.
+	 *
+	 * Wird einmal je Item und Bild in updateRenderState ausgerechnet und
+	 * hier abgelegt. Der Zeichenpfad liest nur noch diesen Float und
+	 * rechnet nichts mehr - kein Muell pro Bild.
+	 */
+	float itemdroptweaks$getItemScale();
+
+	void itemdroptweaks$setItemScale(float factor);
 }

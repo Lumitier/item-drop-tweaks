@@ -34,5 +34,13 @@
   "itemdroptweaks.option.bob_height": "Schwebehöhe",
   "itemdroptweaks.option.bob_height.desc": "Wie weit Items beim Schweben ausschlagen. 1.0 ist Vanilla, 0 hält sie still.",
   "itemdroptweaks.option.spread": "Streuung im Haufen",
-  "itemdroptweaks.option.spread.desc": "Wie weit die Kopien eines Haufens auseinanderliegen. 1.0 ist Vanilla, 0 legt sie übereinander."
+  "itemdroptweaks.option.spread.desc": "Wie weit die Kopien eines Haufens auseinanderliegen. 1.0 ist Vanilla, 0 legt sie übereinander.",
+  "itemdroptweaks.option.item_scales": "Größe je Item",
+  "itemdroptweaks.option.item_scales.desc": "Einzelnen Items eigene Einstellungen geben. Drücke + für eine neue Zeile, die Größe stellst du direkt am Regler ein. Ein Klick auf Bild oder Name öffnet die Einstellungen dieses Items, ein Rechtsklick nimmt sofort das Item aus deiner Hand. 1.0 ist normal, 0.0 blendet das Item ganz aus. Diese Zeilen ersetzen die allgemeinen Einstellungen oben - nur die Stapelgröße wirkt weiterhin.",
+  "itemdroptweaks.option.item_change": "Item",
+  "itemdroptweaks.option.item_change.desc": "Für welches Item diese Zeile gilt. Jedes Item kann nur eine Zeile haben.",
+  "itemdroptweaks.option.item_change.action": "Wechseln...",
+  "itemdroptweaks.picker.title": "Item auswählen",
+  "itemdroptweaks.picker.search": "Suchen...",
+  "itemdroptweaks.picker.in_hand": "In deiner Hand: %s"
 }

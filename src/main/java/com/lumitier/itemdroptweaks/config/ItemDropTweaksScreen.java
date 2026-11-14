@@ -2,6 +2,7 @@ package com.lumitier.itemdroptweaks.config;
 
 import com.lumitier.itemdroptweaks.ItemDropTweaks;
 import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.ListOption;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
@@ -11,7 +12,15 @@ import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.item.Item;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * YACL-Config-Screen, gleicher Aufbau wie bei Experience Orb Tweaks:
@@ -94,6 +103,78 @@ public final class ItemDropTweaksScreen {
 			.build();
 	}
 
+	// ------------------------------------------------------------------
+	// Liste "Groesse je Item"
+	// ------------------------------------------------------------------
+
+	/**
+	 * Was die Liste anzeigt: die Eintraege der Config, deren Item es
+	 * wirklich gibt.
+	 *
+	 * Eintraege fuer Items aus Mods, die gerade fehlen, tauchen nicht auf -
+	 * sie liessen sich ohne Bild und Namen auch gar nicht darstellen.
+	 * Verloren gehen sie trotzdem nicht, siehe write.
+	 */
+	private static List<ItemScale> read() {
+		List<ItemScale> out = new ArrayList<>();
+		for (Map.Entry<String, ItemDropTweaks.ItemSettings> e : ItemDropTweaks.itemSettings.entrySet()) {
+			Identifier id = Identifier.tryParse(e.getKey());
+			if (id == null || !Registries.ITEM.containsId(id)) {
+				continue;
+			}
+			ItemDropTweaks.ItemSettings s = e.getValue();
+			if (s == null) {
+				continue;
+			}
+			out.add(new ItemScale(Registries.ITEM.get(id), s.scale, s.glow, s.shadow));
+		}
+		return out;
+	}
+
+	/**
+	 * Was die Liste zurueckschreibt.
+	 *
+	 * Die unbekannten Eintraege von oben werden vorher beiseite gelegt und
+	 * danach wieder eingefuegt. Sonst wuerde ein einziges Oeffnen des
+	 * Bildschirms ohne die betreffende Mod alle ihre Zeilen loeschen.
+	 */
+	private static void write(List<ItemScale> list) {
+		Map<String, ItemDropTweaks.ItemSettings> unknown = new LinkedHashMap<>();
+		for (Map.Entry<String, ItemDropTweaks.ItemSettings> e : ItemDropTweaks.itemSettings.entrySet()) {
+			Identifier id = Identifier.tryParse(e.getKey());
+			if (id == null || !Registries.ITEM.containsId(id)) {
+				unknown.put(e.getKey(), e.getValue());
+			}
+		}
+
+		ItemDropTweaks.itemSettings.clear();
+		ItemDropTweaks.itemSettings.putAll(unknown);
+		for (ItemScale v : list) {
+			if (v == null || v.item() == null) {
+				continue;
+			}
+			// Zweimal dasselbe Item: der letzte Eintrag gewinnt. Die Auswahl
+			// sperrt belegte Items zwar, aber eine alte Config kann
+			// Doppelungen enthalten.
+			Item item = v.item();
+			ItemDropTweaks.itemSettings.put(Registries.ITEM.getId(item).toString(),
+				new ItemDropTweaks.ItemSettings(v.scale(), v.glow(), v.shadow()));
+		}
+		ItemDropTweaks.rebuildItemIndex();
+	}
+
+	private static ListOption<ItemScale> itemScaleList() {
+		return ListOption.<ItemScale>createBuilder()
+			.name(key("item_scales"))
+			.description(desc("item_scales"))
+			.binding(List.of(), ItemDropTweaksScreen::read, ItemDropTweaksScreen::write)
+			// Neue Zeile uebernimmt, was gerade in der Hand liegt.
+			.initial(ItemScaleController::fallback)
+			.customController(ItemScaleController::new)
+			.collapsed(false)
+			.build();
+	}
+
 	public static Screen create(Screen parent) {
 		return YetAnotherConfigLib.createBuilder()
 			.title(Text.translatable("itemdroptweaks.title"))
@@ -124,6 +205,8 @@ public final class ItemDropTweaksScreen {
 					.option(toggle("scale_shadow", true,
 						() -> ItemDropTweaks.scaleShadow, v -> ItemDropTweaks.scaleShadow = v))
 					.build())
+
+				.group(itemScaleList())
 
 				.group(OptionGroup.createBuilder()
 					.name(Text.translatable("itemdroptweaks.group.animation"))

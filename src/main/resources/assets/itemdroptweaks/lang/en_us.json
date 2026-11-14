@@ -34,5 +34,13 @@
   "itemdroptweaks.option.bob_height": "Bob Height",
   "itemdroptweaks.option.bob_height.desc": "How far items travel while floating. 1.0 is vanilla, 0 holds them steady.",
   "itemdroptweaks.option.spread": "Copy Spread",
-  "itemdroptweaks.option.spread.desc": "How far apart the copies in a pile sit. 1.0 is vanilla, 0 stacks them in the same spot."
+  "itemdroptweaks.option.spread.desc": "How far apart the copies in a pile sit. 1.0 is vanilla, 0 stacks them in the same spot.",
+  "itemdroptweaks.option.item_scales": "Size per Item",
+  "itemdroptweaks.option.item_scales.desc": "Give single items their own settings. Press + to add a row, then drag the slider for the size. Click the item or its name to open its own settings, or right-click to grab whatever you are holding. 1.0 is normal, 0.0 hides the item completely. These rows replace the general settings above - only stack-size scaling still applies.",
+  "itemdroptweaks.option.item_change": "Item",
+  "itemdroptweaks.option.item_change.desc": "Which item this row applies to. Each item can only have one row.",
+  "itemdroptweaks.option.item_change.action": "Change...",
+  "itemdroptweaks.picker.title": "Choose an item",
+  "itemdroptweaks.picker.search": "Search...",
+  "itemdroptweaks.picker.in_hand": "In your hand: %s"
 }

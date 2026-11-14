@@ -89,6 +89,18 @@ public class ItemEntityRendererMixin {
 		int count = entity.getStack().getCount();
 		((ItemCountHolder) state).itemdroptweaks$setCount(count);
 
+		// Eigene Einstellungen dieses Items: einmal hier nachschlagen,
+		// nicht im Zeichenpfad. null heisst "steht nicht in der Liste".
+		ItemDropTweaks.ItemSettings own =
+			ItemDropTweaks.settingsFor(entity.getStack().getItem());
+
+		// Fertige Groesse gleich mitablegen. Der Zeichenpfad liest dann
+		// nur noch diesen Float und rechnet nichts mehr.
+		float finalScale = ItemDropTweaks.active()
+			? ItemDropTweaks.totalScale(count, own)
+			: 1.0F;
+		((ItemCountHolder) state).itemdroptweaks$setItemScale(finalScale);
+
 		if (!ItemDropTweaks.active()) {
 			return;
 		}
@@ -97,11 +109,15 @@ public class ItemEntityRendererMixin {
 			state.renderedAmount = ItemDropTweaks.copiesFor(count);
 		}
 
-		if (ItemDropTweaks.scaleShadow) {
-			state.shadowRadius *= ItemDropTweaks.totalScale(count);
+		// Schatten und Leuchten: Listeneintrag schlaegt die allgemeine
+		// Einstellung, sonst gilt die allgemeine.
+		boolean shadow = own != null ? own.shadow : ItemDropTweaks.scaleShadow;
+		if (shadow) {
+			state.shadowRadius *= finalScale;
 		}
 
-		int g = ItemDropTweaks.clampInt(ItemDropTweaks.glow, 0, 15);
+		int g = ItemDropTweaks.clampInt(
+			own != null ? own.glow : ItemDropTweaks.glow, 0, 15);
 		if (g > 0) {
 			// Nie abdunkeln: nur anheben, wenn das Umgebungslicht niedriger ist.
 			state.light = Math.max(state.light, LightmapTextureManager.pack(g, g));
@@ -120,9 +136,8 @@ public class ItemEntityRendererMixin {
 	private void itemdroptweaks$scaled(MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
 	                                   ItemStackEntityRenderState state, Random random, Box box,
 	                                   Operation<Void> original) {
-		float f = ItemDropTweaks.active()
-			? ItemDropTweaks.totalScale(((ItemCountHolder) state).itemdroptweaks$getCount())
-			: 1.0F;
+		// Schon in updateRenderState ausgerechnet.
+		float f = ((ItemCountHolder) state).itemdroptweaks$getItemScale();
 
 		if (f == 1.0F) {
 			original.call(matrices, queue, light, state, random, box);

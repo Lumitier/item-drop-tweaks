@@ -17,6 +17,9 @@ public class ItemStackEntityRenderStateMixin implements ItemCountHolder {
 	@Unique
 	private int itemdroptweaks$count;
 
+	@Unique
+	private float itemdroptweaks$itemScale = 1.0F;
+
 	@Override
 	public int itemdroptweaks$getCount() {
 		return this.itemdroptweaks$count;
@@ -25,5 +28,15 @@ public class ItemStackEntityRenderStateMixin implements ItemCountHolder {
 	@Override
 	public void itemdroptweaks$setCount(int count) {
 		this.itemdroptweaks$count = count;
+	}
+
+	@Override
+	public float itemdroptweaks$getItemScale() {
+		return this.itemdroptweaks$itemScale;
+	}
+
+	@Override
+	public void itemdroptweaks$setItemScale(float factor) {
+		this.itemdroptweaks$itemScale = factor;
 	}
 }
