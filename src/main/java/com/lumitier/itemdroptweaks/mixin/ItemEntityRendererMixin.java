@@ -92,7 +92,7 @@ public class ItemEntityRendererMixin {
 		// Eigene Einstellungen dieses Items: einmal hier nachschlagen,
 		// nicht im Zeichenpfad. null heisst "steht nicht in der Liste".
 		ItemDropTweaks.ItemSettings own =
-			ItemDropTweaks.settingsFor(entity.getStack().getItem());
+			ItemDropTweaks.settingsFor(entity.getStack());
 
 		// Fertige Groesse gleich mitablegen. Der Zeichenpfad liest dann
 		// nur noch diesen Float und rechnet nichts mehr.

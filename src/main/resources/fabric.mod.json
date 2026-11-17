@@ -34,7 +34,7 @@
     "minecraft": "~1.21.11",
     "java": ">=21",
     "yet_another_config_lib_v3": "*",
-    "lumilib": ">=1.5.4"
+    "lumilib": ">=1.10.0"
   },
   "suggests": {
     "modmenu": "*"

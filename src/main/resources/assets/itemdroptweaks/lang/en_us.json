@@ -42,5 +42,15 @@
   "itemdroptweaks.option.item_change.action": "Change...",
   "itemdroptweaks.picker.title": "Choose an item",
   "itemdroptweaks.picker.search": "Search...",
-  "itemdroptweaks.picker.in_hand": "In your hand: %s"
+  "itemdroptweaks.picker.in_hand": "In your hand: %s",
+  "itemdroptweaks.group.per_item": "Per item",
+  "itemdroptweaks.option.item_list": "Rules",
+  "itemdroptweaks.option.item_list.desc": "Custom values for individual items. With enchantments the same item may appear more than once. Struck through means an earlier rule has the same condition and wins.",
+  "itemdroptweaks.option.item_scale": "Scale",
+  "itemdroptweaks.option.item_glow": "Glow",
+  "itemdroptweaks.option.item_shadow": "Shadow scales too",
+  "itemdroptweaks.group.rule": "Values",
+  "itemdroptweaks.group.rule_enchants": "Condition",
+  "itemdroptweaks.option.enchant_list": "Enchantments",
+  "itemdroptweaks.option.enchant_list.desc": "The rule only applies if the item has EXACTLY these enchantments – same ones, same levels, none extra. Click a row to change its level."
 }

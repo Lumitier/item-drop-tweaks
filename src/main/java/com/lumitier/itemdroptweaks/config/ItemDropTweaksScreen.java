@@ -117,16 +117,21 @@ public final class ItemDropTweaksScreen {
 	 */
 	private static List<ItemScale> read() {
 		List<ItemScale> out = new ArrayList<>();
-		for (Map.Entry<String, ItemDropTweaks.ItemSettings> e : ItemDropTweaks.itemSettings.entrySet()) {
-			Identifier id = Identifier.tryParse(e.getKey());
+		for (ItemDropTweaks.ItemRule r : ItemDropTweaks.itemRules) {
+			// NUR REGELN OHNE VERZAUBERUNGEN. Dieser Bildschirm kann
+			// keine Verzauberungen darstellen - eine Zeile hier hat genau
+			// ein Item und drei Werte. Regeln mit Verzauberungen werden
+			// im LumiLib-Hub gepflegt und hier weder gezeigt noch
+			// angefasst; write() legt sie unveraendert zurueck.
+			if (!r.enchants.isEmpty() || r.settings == null) {
+				continue;
+			}
+			Identifier id = Identifier.tryParse(r.item);
 			if (id == null || !Registries.ITEM.containsId(id)) {
 				continue;
 			}
-			ItemDropTweaks.ItemSettings s = e.getValue();
-			if (s == null) {
-				continue;
-			}
-			out.add(new ItemScale(Registries.ITEM.get(id), s.scale, s.glow, s.shadow));
+			out.add(new ItemScale(Registries.ITEM.get(id),
+				r.settings.scale, r.settings.glow, r.settings.shadow));
 		}
 		return out;
 	}
@@ -139,26 +144,28 @@ public final class ItemDropTweaksScreen {
 	 * Bildschirms ohne die betreffende Mod alle ihre Zeilen loeschen.
 	 */
 	private static void write(List<ItemScale> list) {
-		Map<String, ItemDropTweaks.ItemSettings> unknown = new LinkedHashMap<>();
-		for (Map.Entry<String, ItemDropTweaks.ItemSettings> e : ItemDropTweaks.itemSettings.entrySet()) {
-			Identifier id = Identifier.tryParse(e.getKey());
-			if (id == null || !Registries.ITEM.containsId(id)) {
-				unknown.put(e.getKey(), e.getValue());
+		// Beiseite legen, was dieser Bildschirm nicht darstellen kann:
+		// Regeln mit Verzauberungen, und Regeln fuer Items aus Mods, die
+		// gerade fehlen. Ohne das wuerde ein einziges Oeffnen sie alle
+		// loeschen.
+		List<ItemDropTweaks.ItemRule> keep = new ArrayList<>();
+		for (ItemDropTweaks.ItemRule r : ItemDropTweaks.itemRules) {
+			Identifier id = Identifier.tryParse(r.item);
+			boolean unknown = id == null || !Registries.ITEM.containsId(id);
+			if (!r.enchants.isEmpty() || unknown) {
+				keep.add(r);
 			}
 		}
 
-		ItemDropTweaks.itemSettings.clear();
-		ItemDropTweaks.itemSettings.putAll(unknown);
+		ItemDropTweaks.itemRules.clear();
+		ItemDropTweaks.itemRules.addAll(keep);
 		for (ItemScale v : list) {
 			if (v == null || v.item() == null) {
 				continue;
 			}
-			// Zweimal dasselbe Item: der letzte Eintrag gewinnt. Die Auswahl
-			// sperrt belegte Items zwar, aber eine alte Config kann
-			// Doppelungen enthalten.
-			Item item = v.item();
-			ItemDropTweaks.itemSettings.put(Registries.ITEM.getId(item).toString(),
-				new ItemDropTweaks.ItemSettings(v.scale(), v.glow(), v.shadow()));
+			ItemDropTweaks.itemRules.add(new ItemDropTweaks.ItemRule(
+				Registries.ITEM.getId(v.item()).toString(),
+				new ItemDropTweaks.ItemSettings(v.scale(), v.glow(), v.shadow())));
 		}
 		ItemDropTweaks.rebuildItemIndex();
 	}

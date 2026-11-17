@@ -42,5 +42,15 @@
   "itemdroptweaks.option.item_change.action": "Wechseln...",
   "itemdroptweaks.picker.title": "Item auswählen",
   "itemdroptweaks.picker.search": "Suchen...",
-  "itemdroptweaks.picker.in_hand": "In deiner Hand: %s"
+  "itemdroptweaks.picker.in_hand": "In deiner Hand: %s",
+  "itemdroptweaks.group.per_item": "Je Item",
+  "itemdroptweaks.option.item_list": "Regeln",
+  "itemdroptweaks.option.item_list.desc": "Eigene Werte für einzelne Items. Mit Verzauberungen darf dasselbe Item mehrfach vorkommen. Durchgestrichen heißt: Eine frühere Regel hat dieselbe Bedingung und greift zuerst.",
+  "itemdroptweaks.option.item_scale": "Größe",
+  "itemdroptweaks.option.item_glow": "Leuchten",
+  "itemdroptweaks.option.item_shadow": "Schatten wächst mit",
+  "itemdroptweaks.group.rule": "Werte",
+  "itemdroptweaks.group.rule_enchants": "Bedingung",
+  "itemdroptweaks.option.enchant_list": "Verzauberungen",
+  "itemdroptweaks.option.enchant_list.desc": "Die Regel greift nur, wenn das Item GENAU diese Verzauberungen hat – gleiche Verzauberungen, gleiche Stufen, keine zusätzliche. Zum Ändern auf eine Zeile klicken."
 }

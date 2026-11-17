@@ -4,7 +4,12 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
@@ -14,7 +19,9 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -160,7 +167,55 @@ public final class ItemDropTweaks {
 	 *
 	 * Reihenfolge bleibt wie eingetragen - deshalb LinkedHashMap.
 	 */
-	public static final Map<String, ItemSettings> itemSettings = new LinkedHashMap<>();
+	/**
+	 * Eine Regel: fuer WELCHES Item, mit WELCHEN Verzauberungen, und was
+	 * dann gilt.
+	 *
+	 * WARUM EINE LISTE UND KEINE TABELLE MEHR:
+	 * Frueher stand hinter jeder Item-Kennung genau ein Eintrag. Dasselbe
+	 * Item soll jetzt aber mehrfach vorkommen duerfen, solange sich die
+	 * Verzauberungen unterscheiden - ein Schwert mit Schaerfe V darf
+	 * anders aussehen als ein blankes. Mit einer Tabelle ginge das nicht,
+	 * der Schluessel waere doppelt.
+	 *
+	 * ZUM VERGLEICH DER VERZAUBERUNGEN: Er ist EXAKT. Eine Regel fuer
+	 * "Schaerfe V" greift NICHT bei einem Schwert mit Schaerfe V und
+	 * zusaetzlich Haltbarkeit III. Das ist so gewollt: Sonst waere nicht
+	 * eindeutig, welche von zwei passenden Regeln gilt, und die Antwort
+	 * haenge an der Reihenfolge in der Datei.
+	 *
+	 * Schlichte Klasse mit offenen Feldern, weil GSON sie direkt liest.
+	 */
+	public static final class ItemRule {
+		public String item = "";
+		/** Kennung der Verzauberung auf ihre Stufe. Leer heisst: keine. */
+		public Map<String, Integer> enchants = new LinkedHashMap<>();
+		public ItemSettings settings = new ItemSettings();
+
+		public ItemRule() {}
+
+		public ItemRule(String item, ItemSettings settings) {
+			this.item = item;
+			this.settings = settings;
+		}
+
+		/** Hat diese Regel dieselbe Bedingung wie jene? */
+		public boolean sameAs(ItemRule other) {
+			return other != null
+				&& java.util.Objects.equals(item, other.item)
+				&& enchants.equals(other.enchants);
+		}
+	}
+
+	/**
+	 * Die Regeln, in der Reihenfolge, in der sie eingetragen wurden.
+	 *
+	 * Die Kennung bleibt Text und wird nicht zu einem Item aufgeloest:
+	 * Die Datei wird gelesen, bevor feststeht, welche Mods mitlaufen. Eine
+	 * Regel fuer ein Item aus einer fehlenden Mod soll erhalten bleiben
+	 * und nicht beim naechsten Speichern verschwinden.
+	 */
+	public static final List<ItemRule> itemRules = new ArrayList<>();
 
 	/**
 	 * Dieselben Werte, aber auf echte Items aufgeloest.
@@ -176,11 +231,54 @@ public final class ItemDropTweaks {
 	 * Eintrag darin - so sieht der Leser entweder die alte oder die neue,
 	 * nie eine halb umgebaute.
 	 */
-	private static volatile Map<Item, ItemSettings> itemIndex = Map.of();
+	private static volatile Map<Item, List<ItemRule>> itemIndex = Map.of();
 
-	/** Einstellungen fuer dieses Item, oder null wenn es nicht in der Liste steht. */
-	public static ItemSettings settingsFor(Item item) {
-		return itemIndex.get(item);
+	/**
+	 * Regeln fuer diesen Stapel, oder null.
+	 *
+	 * LAEUFT EINMAL JE ITEM UND BILD, also sparsam gebaut:
+	 *
+	 * Zuerst eine einzige Abfrage in der Tabelle. Fuer das allermeiste,
+	 * was auf dem Boden liegt, gibt es gar keine Regel - dann ist hier
+	 * Schluss, ohne die Verzauberungen auch nur anzusehen.
+	 *
+	 * Die Verzauberungen werden erst geholt, wenn es ueberhaupt
+	 * Kandidaten gibt, und dann nur einmal fuer alle.
+	 */
+	public static ItemSettings settingsFor(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return null;
+		}
+		List<ItemRule> rules = itemIndex.get(stack.getItem());
+		if (rules == null) {
+			return null;
+		}
+		ItemEnchantmentsComponent have = EnchantmentHelper.getEnchantments(stack);
+		for (ItemRule r : rules) {
+			if (matches(r, have)) {
+				return r.settings;
+			}
+		}
+		return null;
+	}
+
+	/** Exakter Vergleich: gleiche Verzauberungen, gleiche Stufen, nichts sonst. */
+	private static boolean matches(ItemRule rule, ItemEnchantmentsComponent have) {
+		if (rule.enchants.size() != have.getSize()) {
+			return false;
+		}
+		if (rule.enchants.isEmpty()) {
+			return true;
+		}
+		for (RegistryEntry<Enchantment> e : have.getEnchantments()) {
+			// getIdAsString ist eine Standardmethode ohne Optional - im
+			// Zeichenpfad zaehlt, dass hier nichts zusaetzlich entsteht.
+			Integer want = rule.enchants.get(e.getIdAsString());
+			if (want == null || want != have.getLevel(e)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -188,18 +286,24 @@ public final class ItemDropTweaks {
 	 * Aenderung im Config-Bildschirm aufrufen.
 	 *
 	 * Unbekannte Kennungen werden uebersprungen, bleiben aber in
-	 * itemSettings stehen - siehe oben.
+	 * itemRules stehen - siehe oben.
 	 */
 	public static void rebuildItemIndex() {
-		Map<Item, ItemSettings> next = new LinkedHashMap<>(itemSettings.size());
-		for (Map.Entry<String, ItemSettings> e : itemSettings.entrySet()) {
-			Identifier id = Identifier.tryParse(e.getKey());
-			if (id == null || !Registries.ITEM.containsId(id) || e.getValue() == null) {
+		Map<Item, List<ItemRule>> next = new LinkedHashMap<>();
+		for (ItemRule r : itemRules) {
+			Identifier id = Identifier.tryParse(r.item);
+			if (id == null || !Registries.ITEM.containsId(id) || r.settings == null) {
 				continue;
 			}
-			ItemSettings v = e.getValue().copy();
-			v.sanitize();
-			next.put(Registries.ITEM.get(id), v);
+			r.settings.sanitize();
+			next.computeIfAbsent(Registries.ITEM.get(id), k -> new ArrayList<>()).add(r);
+		}
+		// Regeln MIT Verzauberungen zuerst pruefen. Sonst faenge eine
+		// blanke Regel fuer dasselbe Item nie etwas - sie wuerde zwar
+		// wegen des exakten Vergleichs nicht faelschlich greifen, aber
+		// die Reihenfolge so zu legen spart im Normalfall Vergleiche.
+		for (List<ItemRule> list : next.values()) {
+			list.sort((a, b) -> Integer.compare(b.enchants.size(), a.enchants.size()));
 		}
 		itemIndex = next;
 	}
@@ -279,7 +383,11 @@ public final class ItemDropTweaks {
 		maxCopies = clampInt(maxCopies, 1, 16);
 		scaleMax  = clamp(scaleMax, 1.0F, 3.0F);
 		countMax  = clampInt(countMax, 64, 100000);
-		for (ItemSettings v : itemSettings.values()) {
+		for (ItemRule r : itemRules) {
+			ItemSettings v = r.settings;
+			if (v == null) {
+				continue;
+			}
 			if (v != null) {
 				v.sanitize();
 			}
@@ -318,6 +426,14 @@ public final class ItemDropTweaks {
 		 * Groesse, Leuchten und Schatten.
 		 */
 		Map<String, JsonElement> itemScales = new LinkedHashMap<>();
+
+		/**
+		 * Die heutige Form. Fehlt sie, wird aus itemScales uebernommen -
+		 * siehe load(). Beides gleichzeitig zu schreiben waere eine
+		 * zweite Wahrheit, deshalb steht in neuen Dateien nur noch das
+		 * hier.
+		 */
+		List<ItemRule> itemRules = new ArrayList<>();
 	}
 
 	/**
@@ -362,12 +478,29 @@ public final class ItemDropTweaks {
 						scaleByCount  = d.scaleByCount;
 						scaleMax      = d.scaleMax;
 						countMax      = d.countMax;
-						itemSettings.clear();
-						if (d.itemScales != null) {
+						itemRules.clear();
+						if (d.itemRules != null && !d.itemRules.isEmpty()) {
+							for (ItemRule rule : d.itemRules) {
+								if (rule == null || rule.item == null || rule.item.isEmpty()) {
+									continue;
+								}
+								if (rule.enchants == null) {
+									rule.enchants = new LinkedHashMap<>();
+								}
+								if (rule.settings == null) {
+									rule.settings = new ItemSettings();
+								}
+								itemRules.add(rule);
+							}
+						} else if (d.itemScales != null) {
+							// UEBERNAHME DER ALTEN FORM: Dort stand hinter
+							// jeder Kennung genau ein Eintrag, ohne
+							// Verzauberungen. Daraus wird je eine Regel ohne
+							// Bedingung - die wirkt genau wie vorher.
 							for (Map.Entry<String, JsonElement> e : d.itemScales.entrySet()) {
 								ItemSettings v = readSettings(e.getValue());
 								if (e.getKey() != null && v != null) {
-									itemSettings.put(e.getKey(), v);
+									itemRules.add(new ItemRule(e.getKey(), v));
 								}
 							}
 						}
@@ -403,10 +536,11 @@ public final class ItemDropTweaks {
 			d.scaleByCount  = scaleByCount;
 			d.scaleMax      = scaleMax;
 			d.countMax      = countMax;
-			d.itemScales    = new LinkedHashMap<>();
-			for (Map.Entry<String, ItemSettings> e : itemSettings.entrySet()) {
-				d.itemScales.put(e.getKey(), GSON.toJsonTree(e.getValue()));
-			}
+			// itemScales bleibt leer: Eine neu geschriebene Datei soll nur
+			// noch die heutige Form enthalten. Gelesen wird die alte
+			// weiterhin, siehe load().
+			d.itemScales = new LinkedHashMap<>();
+			d.itemRules  = new ArrayList<>(itemRules);
 			try (Writer w = Files.newBufferedWriter(p)) {
 				GSON.toJson(d, w);
 			}
